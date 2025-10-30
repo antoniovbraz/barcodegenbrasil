@@ -77,27 +77,27 @@ export default function BarcodeForm() {
 
     try {
       const totalEtiquetas = config.rg_final - config.rg_inicial + 1;
-      const batchSize = 500; // Processar 500 por vez
+      const batchSize = 1000; // Processar 1000 por vez
       const batches = Math.ceil(totalEtiquetas / batchSize);
 
-      setProgress(`Gerando ${totalEtiquetas} etiquetas em ${batches} lotes...`);
+      setProgress(`Gerando ${totalEtiquetas} etiquetas em ${batches} arquivo(s) PDF...`);
 
-      // Criar PDF
-      const pdf = new jsPDF({
-        orientation: 'landscape',
-        unit: 'mm',
-        format: [100, 75],
-      });
-
-      let isFirstPage = true;
-      let processedCount = 0;
-
-      // Processar em lotes
+      // Processar em lotes e gerar PDFs separados
       for (let batch = 0; batch < batches; batch++) {
         const batchStart = config.rg_inicial + (batch * batchSize);
         const batchEnd = Math.min(batchStart + batchSize - 1, config.rg_final);
+        const batchTotal = batchEnd - batchStart + 1;
 
-        setProgress(`Processando lote ${batch + 1} de ${batches} (${batchStart}-${batchEnd})...`);
+        setProgress(`Processando arquivo ${batch + 1} de ${batches} (${batchStart}-${batchEnd})...`);
+
+        // Criar PDF para este lote
+        const pdf = new jsPDF({
+          orientation: 'landscape',
+          unit: 'mm',
+          format: [100, 75],
+        });
+
+        let isFirstPage = true;
 
         // Buscar códigos deste lote da API
         const response = await fetch('/api/generate', {
@@ -118,7 +118,7 @@ export default function BarcodeForm() {
           throw new Error(data.error || 'Erro ao processar requisição');
         }
 
-        setProgress(`Gerando códigos de barras do lote ${batch + 1}...`);
+        setProgress(`Gerando códigos de barras do arquivo ${batch + 1}...`);
 
         // Gerar códigos de barras deste lote
         for (const item of data.codigos) {
@@ -152,22 +152,23 @@ export default function BarcodeForm() {
             const y = 30;
 
             pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
-
-            processedCount++;
           } catch (barcodeError) {
             console.error(`Erro ao gerar código ${item.rg}:`, barcodeError);
             continue;
           }
         }
 
-        setProgress(`Processados ${processedCount} de ${totalEtiquetas} códigos (${Math.round((processedCount / totalEtiquetas) * 100)}%)...`);
-        console.log(`Lote ${batch + 1}/${batches} concluído. Total: ${processedCount}/${totalEtiquetas}`);
+        setProgress(`Salvando arquivo ${batch + 1} de ${batches}...`);
+
+        // Download do PDF deste lote
+        const fileName = batches > 1 
+          ? `${config.nome_pdf.replace('.pdf', '')}_parte${batch + 1}.pdf`
+          : config.nome_pdf || 'etiquetas.pdf';
+        
+        pdf.save(fileName);
+
+        console.log(`Lote ${batch + 1}/${batches} concluído. ${batchTotal} etiquetas salvas em ${fileName}`);
       }
-
-      setProgress('Finalizando PDF...');
-
-      // Download do PDF
-      pdf.save(config.nome_pdf || 'etiquetas.pdf');
 
       setProgress('');
 
