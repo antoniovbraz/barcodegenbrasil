@@ -6,6 +6,10 @@ import { jsPDF } from 'jspdf';
 import { BarcodeConfig } from '@/types/barcode';
 import { generateBarcodeWithText } from '@/lib/barcode-utils';
 
+// Configuração do runtime
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 // Aumentar o tempo de execução para 60 segundos (máximo no Vercel Hobby)
 export const maxDuration = 60;
 
