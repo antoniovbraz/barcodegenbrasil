@@ -4,14 +4,6 @@ import { jsPDF } from 'jspdf';
 import { BarcodeConfig } from '@/types/barcode';
 import { generateBarcodeWithText } from '@/lib/barcode-utils';
 
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb',
-    },
-  },
-};
-
 // Aumentar o tempo de execução para 60 segundos (máximo no Vercel Hobby)
 export const maxDuration = 60;
 
