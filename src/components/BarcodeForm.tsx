@@ -26,6 +26,7 @@ export default function BarcodeForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [progress, setProgress] = useState<string>('');
+  const [showModal, setShowModal] = useState(false);
 
   const handleChange = (field: keyof BarcodeConfig, value: string | number) => {
     setConfig((prev) => ({ ...prev, [field]: value }));
@@ -190,6 +191,7 @@ export default function BarcodeForm() {
       }
 
       setSuccess(true);
+      setShowModal(true); // Mostrar o modal especial para a Luzilena!
     } catch (err) {
       setProgress('');
       setError(err instanceof Error ? err.message : 'Erro ao gerar PDF');
@@ -202,6 +204,7 @@ export default function BarcodeForm() {
   const totalEtiquetas = config.rg_final - config.rg_inicial + 1;
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Código Base Fixo */}
@@ -369,5 +372,43 @@ export default function BarcodeForm() {
         {loading ? 'Gerando PDF...' : 'Gerar Códigos de Barras'}
       </button>
     </form>
+
+    {/* Modal especial para a Luzilena */}
+    {showModal && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 animate-bounce-in">
+          <div className="text-center">
+            <div className="text-6xl mb-4">🎉✨</div>
+            <h2 className="text-3xl font-bold text-pink-600 mb-4">
+              Parabéns, Luzilena!
+            </h2>
+            <div className="space-y-3 text-gray-700">
+              <p className="text-lg font-medium">
+                Seus códigos de barras foram gerados com sucesso! 🎊
+              </p>
+              <p className="text-base">
+                Mais {config.rg_final - config.rg_inicial + 1} etiquetas prontinho! 
+                Você é tipo uma impressora humana, só que melhor! 😄
+              </p>
+              <p className="text-sm text-gray-600 italic">
+                (E nem precisou gritar com a impressora dessa vez! 🖨️💪)
+              </p>
+            </div>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setShowModal(false)}
+                className="flex-1 bg-gradient-to-r from-pink-500 to-purple-600 text-white py-3 px-6 rounded-lg font-medium hover:from-pink-600 hover:to-purple-700 transition-all transform hover:scale-105"
+              >
+                Valeu, maninho! 💜
+              </button>
+            </div>
+            <p className="mt-4 text-xs text-gray-500">
+              Feito com 💙 pelo seu irmão
+            </p>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
   );
 }
