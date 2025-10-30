@@ -28,9 +28,9 @@ export async function POST(request: NextRequest) {
     const totalEtiquetas = config.rg_final - config.rg_inicial + 1;
 
     // Limite de segurança
-    if (totalEtiquetas > 1000) {
+    if (totalEtiquetas > 2000) {
       return NextResponse.json(
-        { error: 'Máximo de 1000 etiquetas por vez' },
+        { error: 'Máximo de 2000 etiquetas por vez' },
         { status: 400 }
       );
     }

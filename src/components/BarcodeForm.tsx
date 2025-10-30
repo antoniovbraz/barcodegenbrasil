@@ -54,8 +54,8 @@ export default function BarcodeForm() {
     }
 
     const total = config.rg_final - config.rg_inicial + 1;
-    if (total > 1000) {
-      setError('Máximo de 1000 etiquetas por vez');
+    if (total > 2000) {
+      setError('Máximo de 2000 etiquetas por vez');
       return false;
     }
 
