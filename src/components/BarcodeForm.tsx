@@ -3,6 +3,10 @@
 import { useState } from 'react';
 import { BarcodeConfig } from '@/types/barcode';
 import { isValidDate } from '@/lib/barcode-utils';
+// @ts-ignore
+import bwipjs from 'bwip-js';
+// @ts-ignore
+import { jsPDF } from 'jspdf';
 
 const defaultConfig: BarcodeConfig = {
   base_fixo: '280000179',
@@ -70,6 +74,7 @@ export default function BarcodeForm() {
     setSuccess(false);
 
     try {
+      // Buscar códigos da API
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: {
@@ -81,22 +86,59 @@ export default function BarcodeForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Erro ao gerar PDF');
+        throw new Error(data.error || 'Erro ao processar requisição');
       }
 
-      // Baixar PDF
-      const pdfBlob = new Blob(
-        [Uint8Array.from(atob(data.pdf), (c) => c.charCodeAt(0))],
-        { type: 'application/pdf' }
-      );
-      const url = window.URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = data.fileName;
-      link.click();
-      window.URL.revokeObjectURL(url);
+      // Gerar PDF no cliente
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: [100, 75],
+      });
 
-      // Salvar no histórico (opcional, não bloqueia o sucesso)
+      let isFirstPage = true;
+
+      for (const item of data.codigos) {
+        if (!isFirstPage) {
+          pdf.addPage([100, 75], 'landscape');
+        }
+        isFirstPage = false;
+
+        try {
+          // Gerar código de barras usando canvas
+          const canvas = document.createElement('canvas');
+          bwipjs.toCanvas(canvas, {
+            bcid: 'code128',
+            text: item.codigo,
+            scale: 3,
+            height: 15,
+            includetext: false,
+          });
+
+          const imgData = canvas.toDataURL('image/png');
+
+          // Texto acima do código de barras
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text(item.codigo, 50, 25, { align: 'center' });
+
+          // Código de barras centralizado
+          const imgWidth = 90;
+          const imgHeight = 40;
+          const x = (100 - imgWidth) / 2;
+          const y = 30;
+
+          pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+        } catch (barcodeError) {
+          console.error(`Erro ao gerar código ${item.rg}:`, barcodeError);
+          continue;
+        }
+      }
+
+      // Download do PDF
+      pdf.save(data.fileName);
+
+      // Salvar no histórico (opcional)
       try {
         await fetch('/api/history', {
           method: 'POST',

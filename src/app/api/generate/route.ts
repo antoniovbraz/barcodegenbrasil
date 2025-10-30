@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-// @ts-ignore - bwip-js não tem tipos TypeScript
-import bwipjs from 'bwip-js';
-// @ts-ignore - jspdf pode ter problemas com tipos
-import { jsPDF } from 'jspdf';
 import { BarcodeConfig } from '@/types/barcode';
 import { generateBarcodeWithText } from '@/lib/barcode-utils';
 
 // Configuração do runtime
-export const runtime = 'nodejs';
+export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
-
-// Aumentar o tempo de execução para 60 segundos (máximo no Vercel Hobby)
-export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,68 +35,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Criar PDF
-    const pdf = new jsPDF({
-      orientation: 'landscape',
-      unit: 'mm',
-      format: [100, 75], // 10cm x 7.5cm
-    });
-
-    let isFirstPage = true;
-
+    // Gerar lista de códigos para o cliente processar
+    const codigos = [];
     for (let rg = config.rg_inicial; rg <= config.rg_final; rg++) {
-      if (!isFirstPage) {
-        pdf.addPage([100, 75], 'landscape');
-      }
-      isFirstPage = false;
-
-      const codigoCompleto = generateBarcodeWithText(config, rg);
-
-      try {
-        // Gerar código de barras Code128
-        const pngBuffer = await bwipjs.toBuffer({
-          bcid: 'code128',
-          text: codigoCompleto,
-          scale: 3,
-          height: 15,
-          includetext: false,
-        });
-
-        const base64Image = pngBuffer.toString('base64');
-        const imgData = `data:image/png;base64,${base64Image}`;
-
-        // Texto acima do código de barras
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(codigoCompleto, 50, 25, { align: 'center' });
-
-        // Código de barras centralizado
-        const imgWidth = 90;
-        const imgHeight = 40;
-        const x = (100 - imgWidth) / 2;
-        const y = 30;
-
-        pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
-      } catch (error) {
-        console.error(`Erro ao gerar código para RG ${rg}:`, error);
-        continue;
-      }
+      codigos.push({
+        rg,
+        codigo: generateBarcodeWithText(config, rg),
+      });
     }
-
-    // Gerar PDF como buffer
-    const pdfBuffer = Buffer.from(pdf.output('arraybuffer'));
-    const base64Pdf = pdfBuffer.toString('base64');
 
     return NextResponse.json({
       success: true,
-      pdf: base64Pdf,
+      codigos,
       totalEtiquetas,
       fileName: config.nome_pdf || 'etiquetas.pdf',
     });
   } catch (error) {
-    console.error('Erro ao gerar PDF:', error);
+    console.error('Erro ao processar requisição:', error);
     return NextResponse.json(
-      { error: 'Erro ao gerar PDF', details: String(error) },
+      { error: 'Erro ao processar requisição', details: String(error) },
       { status: 500 }
     );
   }
