@@ -74,22 +74,11 @@ export default function BarcodeForm() {
     setSuccess(false);
 
     try {
-      // Buscar códigos da API
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(config),
-      });
+      const totalEtiquetas = config.rg_final - config.rg_inicial + 1;
+      const batchSize = 100; // Processar 100 por vez
+      const batches = Math.ceil(totalEtiquetas / batchSize);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Erro ao processar requisição');
-      }
-
-      // Gerar PDF no cliente
+      // Criar PDF
       const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
@@ -97,46 +86,78 @@ export default function BarcodeForm() {
       });
 
       let isFirstPage = true;
+      let processedCount = 0;
 
-      for (const item of data.codigos) {
-        if (!isFirstPage) {
-          pdf.addPage([100, 75], 'landscape');
+      // Processar em lotes
+      for (let batch = 0; batch < batches; batch++) {
+        const batchStart = config.rg_inicial + (batch * batchSize);
+        const batchEnd = Math.min(batchStart + batchSize - 1, config.rg_final);
+
+        // Buscar códigos deste lote da API
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ...config,
+            rg_inicial: batchStart,
+            rg_final: batchEnd,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Erro ao processar requisição');
         }
-        isFirstPage = false;
 
-        try {
-          // Gerar código de barras usando canvas
-          const canvas = document.createElement('canvas');
-          bwipjs.toCanvas(canvas, {
-            bcid: 'code128',
-            text: item.codigo,
-            scale: 3,
-            height: 15,
-            includetext: false,
-          });
+        // Gerar códigos de barras deste lote
+        for (const item of data.codigos) {
+          if (!isFirstPage) {
+            pdf.addPage([100, 75], 'landscape');
+          }
+          isFirstPage = false;
 
-          const imgData = canvas.toDataURL('image/png');
+          try {
+            // Gerar código de barras usando canvas
+            const canvas = document.createElement('canvas');
+            bwipjs.toCanvas(canvas, {
+              bcid: 'code128',
+              text: item.codigo,
+              scale: 3,
+              height: 15,
+              includetext: false,
+            });
 
-          // Texto acima do código de barras
-          pdf.setFontSize(10);
-          pdf.setFont('helvetica', 'bold');
-          pdf.text(item.codigo, 50, 25, { align: 'center' });
+            const imgData = canvas.toDataURL('image/png');
 
-          // Código de barras centralizado
-          const imgWidth = 90;
-          const imgHeight = 40;
-          const x = (100 - imgWidth) / 2;
-          const y = 30;
+            // Texto acima do código de barras
+            pdf.setFontSize(10);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(item.codigo, 50, 25, { align: 'center' });
 
-          pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
-        } catch (barcodeError) {
-          console.error(`Erro ao gerar código ${item.rg}:`, barcodeError);
-          continue;
+            // Código de barras centralizado
+            const imgWidth = 90;
+            const imgHeight = 40;
+            const x = (100 - imgWidth) / 2;
+            const y = 30;
+
+            pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+
+            processedCount++;
+          } catch (barcodeError) {
+            console.error(`Erro ao gerar código ${item.rg}:`, barcodeError);
+            continue;
+          }
         }
+
+        // Feedback de progresso
+        console.log(`Processados ${processedCount} de ${totalEtiquetas} códigos...`);
       }
 
       // Download do PDF
-      pdf.save(data.fileName);
+      pdf.save(config.nome_pdf || 'etiquetas.pdf');
 
       // Salvar no histórico (opcional)
       try {
@@ -147,7 +168,7 @@ export default function BarcodeForm() {
           },
           body: JSON.stringify({
             config,
-            totalEtiquetas: data.totalEtiquetas,
+            totalEtiquetas,
             status: 'completed',
           }),
         });
