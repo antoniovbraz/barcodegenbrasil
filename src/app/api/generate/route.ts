@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+// @ts-ignore - bwip-js não tem tipos TypeScript
 import bwipjs from 'bwip-js';
+// @ts-ignore - jspdf pode ter problemas com tipos
 import { jsPDF } from 'jspdf';
 import { BarcodeConfig } from '@/types/barcode';
 import { generateBarcodeWithText } from '@/lib/barcode-utils';
